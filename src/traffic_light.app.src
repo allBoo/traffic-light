@@ -1,0 +1,21 @@
+{application, traffic_light,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, { traffic_light_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    lager,
+    gproc,
+    yamerl,
+    inets,
+    elli
+   ]},
+  {env,[]},
+  {modules, []},
+
+  {maintainers, []},
+  {licenses, []},
+  {links, []}
+ ]}.
