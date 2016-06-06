@@ -15,7 +15,7 @@
 %% ====================================================================
 %% API functions
 %% ====================================================================
--export([name/1, find/1, bind/1, unbind/1, binded/1, send/2, broadcast/3,
+-export([name/1, unname/1, find/1, bind/1, unbind/1, binded/1, send/2, broadcast/3,
 		 set/2, get/1, get/2]).
 
 
@@ -25,6 +25,9 @@ name(Names) when is_list(Names) ->
 
 name(Name) ->
 	?TRY(gproc:add_local_name(Name)).
+
+unname(Name) ->
+  ?TRY(gproc:unreg({n, l, Name})).
 
 find(Name) ->
 	gproc:lookup_local_name(Name).

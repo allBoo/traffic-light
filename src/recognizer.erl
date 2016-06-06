@@ -21,6 +21,17 @@
   get_id/1
 ]).
 
+-ifdef(TEST).
+%-include_lib("eunit/include/eunit.hrl").
+-export([
+  filter_neighbors/2,
+  get_missed/2,
+  get_missed_section/2,
+  associate_variants/3,
+  stl/1
+]).
+-endif.
+
 %% gen_server callbacks
 -export([init/1,
   handle_call/3,
@@ -51,6 +62,7 @@ start_link(Data) ->
 %%--------------------------------------------------------------------
 %% @doc
 %% Resets the internal state
+%% Only for debugging and testing
 %%
 %% @end
 %%--------------------------------------------------------------------
@@ -231,9 +243,12 @@ handle_call(done, _From, State) ->
       }};
 
     _ ->
-      {stop, {error, unresolved}, State}
+      {stop, normal, {error, unresolved}, State}
   end;
 
+
+handle_call(reset, _From, State) ->
+  {reply, ok, #sequence{id = State#sequence.id}, ?KEEP_ALIVE};
 
 handle_call(get_id, _From, State) ->
   {reply, State#sequence.id, State, ?KEEP_ALIVE};
@@ -292,6 +307,7 @@ handle_info(_Info, State) ->
     State :: #sequence{}) -> term()).
 terminate(Reason, State) ->
   ?LOG("Recognizer ~p terminated with reason ~p", [State#sequence.id, Reason]),
+  deregister(State#sequence.id),
   storage:save(State),
   ok.
 
@@ -314,7 +330,11 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 register(Uuid) ->
-  reg:name({recognizer, Uuid}).
+  ?WARN("EXISTS ~p", [recognizer:registered(Uuid)]),
+  ok = reg:name({recognizer, Uuid}).
+
+deregister(Uuid) ->
+  reg:unname({recognizer, Uuid}).
 
 %% return true if exists at least one number less than 1 that passed
 filter_neighbors(_, []) -> true;
