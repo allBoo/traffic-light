@@ -38,6 +38,7 @@
 -export([get_matches/1, encode/1]).
 
 
+get_matches(-1) -> [{0, 0}];
 get_matches(Input) ->
   get_matches(?ALPHABET, Input, []).
 

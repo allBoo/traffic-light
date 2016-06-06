@@ -40,7 +40,6 @@
   id           :: string(),
   start   = [] :: [#start_item{}],
   last    = [] :: [integer()],          %% last numbers
-  exclude = [] :: [],
   missing = #sections{} :: #sections{}, %% sections which are identified as non working
   working = #sections{} :: #sections{}, %% sections which are identified as working
   finished = false :: boolean()         %% recognition is finished

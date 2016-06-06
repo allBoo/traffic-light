@@ -52,8 +52,13 @@ add_test_() ->
      end),
 
     ?_test(begin
+       InitialState = #sequence{missing = #sections{first = 2#1111111, second = 2#1111111}},
+       ?assertException(throw, {stop, normal, {error, unresolved}, _}, recognizer:handle_call({add, {2#1111111, 2#1111111}}, undefined, InitialState))
+     end),
+
+    ?_test(begin
        InitialState = #sequence{last = [1]},
-       ?assertMatch({stop, normal, {error, unresolved}, _}, recognizer:handle_call({add, {2#1111111, 2#1111111}}, undefined, InitialState))
+       ?assertException(throw, {stop, normal, {error, unresolved}, _}, recognizer:handle_call({add, {2#1111111, 2#1111111}}, undefined, InitialState))
      end),
 
     ?_test(begin
@@ -78,8 +83,13 @@ done_test_() ->
 
     ?_test(begin
       InitialState = #sequence{last = [99]},
-      ?assertMatch({stop, normal, {error, unresolved}, _}, recognizer:handle_call(done, undefined, InitialState))
+      ?assertException(throw, {stop, normal, {error, unresolved}, _}, recognizer:handle_call(done, undefined, InitialState))
     end),
+
+    ?_test(begin
+       InitialState = #sequence{finished = true},
+       ?assertMatch({stop, normal, {error, already_finished}, InitialState}, recognizer:handle_call(done, undefined, InitialState))
+     end),
 
     ?_test(begin
        InitialState = #sequence{},

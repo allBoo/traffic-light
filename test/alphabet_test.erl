@@ -11,8 +11,11 @@
 -include_lib("eunit/include/eunit.hrl").
 
 
-matches_test() ->
-  ?assert(alphabet:get_matches(2#1110111) =:= [{0, 2#0000000}, {8, 2#0001000}]).
+matches_test_() ->
+  [
+    ?_assert(alphabet:get_matches(2#1110111) =:= [{0, 2#0000000}, {8, 2#0001000}]),
+    ?_assert(alphabet:get_matches(-1) =:= [{0, 0}])
+  ].
 
 encode_test() ->
   ?assert(alphabet:encode(4) =:= 2#0111010).

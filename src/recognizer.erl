@@ -162,7 +162,6 @@ handle_call({add, _}, _From, State) when State#sequence.finished =:= true ->
   {stop, normal, {error, already_finished}, State};
 
 handle_call({add, {First, Second}}, _From, State) ->
-  %% @todo initial checking by missing
   FirstVariants = alphabet:get_matches(First),
   SecondVariants = alphabet:get_matches(Second),
 
@@ -170,81 +169,93 @@ handle_call({add, {First, Second}}, _From, State) ->
     first = (State#sequence.working)#sections.first bor First,
     second = (State#sequence.working)#sections.second bor Second
   },
-  ?DBG("working ~p~n", [format:print(WorkingSection)]),
 
-  AllVariants = [
-    {N1 * 10 + N2, #sections{first = M1, second = M2}} || {N1, M1} <- FirstVariants, {N2, M2} <- SecondVariants,
-    %% filter 00
-    (N1 /= 0) or (N2 /= 0),
-    %% filter by working sections
-    M1 band WorkingSection#sections.first == 0,
-    M2 band WorkingSection#sections.second == 0,
-    %% quick filter only neighboring numbers
-    filter_neighbors(N1 * 10 + N2, State#sequence.last)
-  ],
-  ?DBG("AllVariants ~p~n", [AllVariants]),
+  %% check for missed sections (if working sections crossing exists)
+  Exp = ((State#sequence.missing)#sections.first band WorkingSection#sections.first == 0) and
+    ((State#sequence.missing)#sections.second band WorkingSection#sections.second == 0),
+  assert(Exp, unresolved, State#sequence{working = WorkingSection}),
 
+  %% generate all available variant of pairs of digits and missing sections
+  AllVariants = generate_variants(FirstVariants, SecondVariants, WorkingSection, State#sequence.last),
+  assert(AllVariants /= [], unresolved, State#sequence{working = WorkingSection}),
+
+  %% correlate new variants with all possible start positions
   StartData = associate_variants(AllVariants, #sections{first = First, second = Second}, State#sequence.start),
-  ?DBG("StartData ~p~n", [StartData]),
 
   StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
-  ?DBG("StartNumbers ~p~n", [StartNumbers]),
-
   LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
-  ?DBG("LastNumbers ~p~n", [LastNumbers]),
 
+  %% calculate missing sections for each possible start position and globally known
   AllVariantsMissing = [M || {_, M} <- AllVariants],
-  ?DBG("AllVariantsMissing ~p~n", [format:print(AllVariantsMissing)]),
-
   AllSequenceMissing = [StartItem#start_item.missing || StartItem <- StartData],
-  ?DBG("AllSequenceMissing ~p~n", [format:print(AllSequenceMissing)]),
 
   MissingByVariants = get_missed(AllVariantsMissing, State#sequence.missing),
   Missing = get_missed(AllSequenceMissing, MissingByVariants),
-  ?DBG("Missing ~p~n", [format:print(Missing)]),
 
-  %% @todo send error if StartNumbers is empty
-  {reply, {ok, StartNumbers, stl(Missing)}, State#sequence{
+  NewState = State#sequence{
     start = StartData,
     last = LastNumbers,
     missing = Missing,
     working = WorkingSection
-  }, ?KEEP_ALIVE};
+  },
+  assert(StartData /= [], unresolved, NewState),
 
+  if
+    length(StartNumbers) == 1 ->
+      {stop, normal, {ok, StartNumbers, stl(Missing)}, NewState};
+    true ->
+      {reply, {ok, StartNumbers, stl(Missing)}, NewState, ?KEEP_ALIVE}
+  end;
+
+
+handle_call(done, _From, State) when State#sequence.finished =:= true ->
+  {stop, normal, {error, already_finished}, State};
 
 handle_call(done, _From, State) when State#sequence.last =:= [] ->
   {stop, normal, {error, no_data}, State};
 
-
 handle_call(done, _From, State) ->
-  case filter_neighbors(0, State#sequence.last) of
-    true ->
-      AllVariants = [{0, #sections{}}],
-      ?DBG("AllVariants ~p~n", [AllVariants]),
+  First = Second = 0,
+  FirstVariants = alphabet:get_matches(-1),
+  SecondVariants = alphabet:get_matches(-1),
 
-      StartData = associate_variants(AllVariants, #sections{}, State#sequence.start),
-      ?DBG("StartData ~p~n", [StartData]),
+  WorkingSection = #sections{
+    first = (State#sequence.working)#sections.first bor First,
+    second = (State#sequence.working)#sections.second bor Second
+  },
 
-      StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
-      ?DBG("StartNumbers ~p~n", [StartNumbers]),
+  %% check for missed sections (if working sections crossing exists)
+  Exp = ((State#sequence.missing)#sections.first band WorkingSection#sections.first == 0) and
+    ((State#sequence.missing)#sections.second band WorkingSection#sections.second == 0),
+  assert(Exp, unresolved, State#sequence{working = WorkingSection}),
 
-      LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
-      ?DBG("LastNumbers ~p~n", [LastNumbers]),
+  %% generate all available variant of pairs of digits and missing sections
+  AllVariants = generate_variants(FirstVariants, SecondVariants, WorkingSection, State#sequence.last),
+  assert(AllVariants /= [], unresolved, State#sequence{working = WorkingSection}),
 
-      AllSequenceMissing = [StartItem#start_item.missing || StartItem <- StartData],
-      Missing = get_missed(AllSequenceMissing, State#sequence.missing),
-      ?DBG("Missing ~p~n", [format:print(Missing)]),
+  %% correlate new variants with all possible start positions
+  StartData = associate_variants(AllVariants, #sections{first = First, second = Second}, State#sequence.start),
 
-      {stop, normal, {ok, StartNumbers, stl(Missing)}, State#sequence{
-        start = StartData,
-        last = LastNumbers,
-        missing = Missing,
-        finished = true
-      }};
+  StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
+  LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
 
-    _ ->
-      {stop, normal, {error, unresolved}, State}
-  end;
+  %% calculate missing sections for each possible start position and globally known
+  AllVariantsMissing = [M || {_, M} <- AllVariants],
+  AllSequenceMissing = [StartItem#start_item.missing || StartItem <- StartData],
+
+  MissingByVariants = get_missed(AllVariantsMissing, State#sequence.missing),
+  Missing = get_missed(AllSequenceMissing, MissingByVariants),
+
+  NewState = State#sequence{
+    start = StartData,
+    last = LastNumbers,
+    missing = Missing,
+    working = WorkingSection,
+    finished = true
+  },
+  assert(StartData /= [], unresolved, NewState),
+
+  {stop, normal, {ok, StartNumbers, stl(Missing)}, NewState};
 
 
 handle_call(reset, _From, State) ->
@@ -306,7 +317,7 @@ handle_info(_Info, State) ->
 -spec(terminate(Reason :: (normal | shutdown | {shutdown, term()} | term()),
     State :: #sequence{}) -> term()).
 terminate(Reason, State) ->
-  ?LOG("Recognizer ~p terminated with reason ~p", [State#sequence.id, Reason]),
+  ?LOG("Recognizer ~p terminated with reason ~p and state ~p", [State#sequence.id, Reason, State]),
   deregister(State#sequence.id),
   storage:save(State),
   ok.
@@ -330,7 +341,6 @@ code_change(_OldVsn, State, _Extra) ->
 %%%===================================================================
 
 register(Uuid) ->
-  ?WARN("EXISTS ~p", [recognizer:registered(Uuid)]),
   ok = reg:name({recognizer, Uuid}).
 
 deregister(Uuid) ->
@@ -340,6 +350,24 @@ deregister(Uuid) ->
 filter_neighbors(_, []) -> true;
 filter_neighbors(Number, Exists) ->
   lists:any(fun(El) -> El - 1 == Number end, Exists).
+
+
+generate_variants([{0, 0}], [{0, 0}], _, Last) ->
+  case filter_neighbors(0, Last) of
+    true -> [{0, #sections{}}];
+    _ -> []
+  end;
+generate_variants(FirstVariants, SecondVariants, WorkingSection, Last) ->
+  [
+    {N1 * 10 + N2, #sections{first = M1, second = M2}} || {N1, M1} <- FirstVariants, {N2, M2} <- SecondVariants,
+    %% filter 00
+    (N1 /= 0) or (N2 /= 0),
+    %% filter by working sections
+    M1 band WorkingSection#sections.first == 0,
+    M2 band WorkingSection#sections.second == 0,
+    %% quick filter only neighboring numbers
+    filter_neighbors(N1 * 10 + N2, Last)
+  ].
 
 
 get_missed(Variants, Current) ->
@@ -381,3 +409,8 @@ associate_variants(AllVariants, Current, StartData) ->
 
 stl(Sections) ->
   [Sections#sections.first, Sections#sections.second].
+
+
+assert(true, _, _) -> ok;
+assert(false, Reason, State) ->
+  ?THROW_ERROR({stop, normal, {error, Reason}, State}).
