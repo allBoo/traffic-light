@@ -39,8 +39,10 @@
 
 
 get_matches(-1) -> [{0, 0}];
-get_matches(Input) ->
-  get_matches(?ALPHABET, Input, []).
+get_matches(Input) when is_integer(Input), Input >= 0, Input < 128 ->
+  get_matches(?ALPHABET, Input, []);
+get_matches(_) ->
+  ?THROW_ERROR({error, format_error}).
 
 get_matches([], _, Acc) -> Acc;
 get_matches([{Num, Code} | Tail], Input, Acc) when (Input band Code =:= Input) ->

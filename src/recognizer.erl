@@ -172,49 +172,15 @@ handle_call({add, _}, _From, State) when State#sequence.finished =:= true ->
   {stop, normal, {error, already_finished}, State};
 
 handle_call({add, {First, Second}}, _From, State) ->
-  FirstVariants = alphabet:get_matches(First),
-  SecondVariants = alphabet:get_matches(Second),
-
-  WorkingSection = #sections{
-    first = (State#sequence.working)#sections.first bor First,
-    second = (State#sequence.working)#sections.second bor Second
-  },
-
-  %% check for missed sections (if working sections crossing exists)
-  Exp = ((State#sequence.missing)#sections.first band WorkingSection#sections.first == 0) and
-    ((State#sequence.missing)#sections.second band WorkingSection#sections.second == 0),
-  assert(Exp, unresolved, State#sequence{working = WorkingSection}),
-
-  %% generate all available variant of pairs of digits and missing sections
-  AllVariants = generate_variants(FirstVariants, SecondVariants, WorkingSection, State#sequence.last),
-  assert(AllVariants /= [], unresolved, State#sequence{working = WorkingSection}),
-
-  %% correlate new variants with all possible start positions
-  StartData = associate_variants(AllVariants, #sections{first = First, second = Second}, State#sequence.start),
-
-  StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
-  LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
-
-  %% calculate missing sections for each possible start position and globally known
-  AllVariantsMissing = [M || {_, M} <- AllVariants],
-  AllSequenceMissing = [StartItem#start_item.missing || StartItem <- StartData],
-
-  MissingByVariants = get_missed(AllVariantsMissing, State#sequence.missing),
-  Missing = get_missed(AllSequenceMissing, MissingByVariants),
-
-  NewState = State#sequence{
-    start = StartData,
-    last = LastNumbers,
-    missing = Missing,
-    working = WorkingSection
-  },
-  assert(StartData /= [], unresolved, NewState),
+  NewState = process_with_sections(First, Second, State),
+  StartNumbers = [StartItem#start_item.start || StartItem <- NewState#sequence.start],
+  Missing = stl(NewState#sequence.missing),
 
   if
     length(StartNumbers) == 1 ->
-      {stop, normal, {ok, StartNumbers, stl(Missing)}, NewState};
+      {stop, normal, {ok, StartNumbers, Missing}, NewState};
     true ->
-      {reply, {ok, StartNumbers, stl(Missing)}, NewState, ?KEEP_ALIVE}
+      {reply, {ok, StartNumbers, Missing}, NewState, ?KEEP_ALIVE}
   end;
 
 
@@ -225,47 +191,12 @@ handle_call(done, _From, State) when State#sequence.last =:= [] ->
   {stop, normal, {error, no_data}, State};
 
 handle_call(done, _From, State) ->
-  First = Second = 0,
-  FirstVariants = alphabet:get_matches(-1),
-  SecondVariants = alphabet:get_matches(-1),
+  First = Second = -1,
+  NewState = process_with_sections(First, Second, State),
+  StartNumbers = [StartItem#start_item.start || StartItem <- NewState#sequence.start],
+  Missing = stl(NewState#sequence.missing),
 
-  WorkingSection = #sections{
-    first = (State#sequence.working)#sections.first bor First,
-    second = (State#sequence.working)#sections.second bor Second
-  },
-
-  %% check for missed sections (if working sections crossing exists)
-  Exp = ((State#sequence.missing)#sections.first band WorkingSection#sections.first == 0) and
-    ((State#sequence.missing)#sections.second band WorkingSection#sections.second == 0),
-  assert(Exp, unresolved, State#sequence{working = WorkingSection}),
-
-  %% generate all available variant of pairs of digits and missing sections
-  AllVariants = generate_variants(FirstVariants, SecondVariants, WorkingSection, State#sequence.last),
-  assert(AllVariants /= [], unresolved, State#sequence{working = WorkingSection}),
-
-  %% correlate new variants with all possible start positions
-  StartData = associate_variants(AllVariants, #sections{first = First, second = Second}, State#sequence.start),
-
-  StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
-  LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
-
-  %% calculate missing sections for each possible start position and globally known
-  AllVariantsMissing = [M || {_, M} <- AllVariants],
-  AllSequenceMissing = [StartItem#start_item.missing || StartItem <- StartData],
-
-  MissingByVariants = get_missed(AllVariantsMissing, State#sequence.missing),
-  Missing = get_missed(AllSequenceMissing, MissingByVariants),
-
-  NewState = State#sequence{
-    start = StartData,
-    last = LastNumbers,
-    missing = Missing,
-    working = WorkingSection,
-    finished = true
-  },
-  assert(StartData /= [], unresolved, NewState),
-
-  {stop, normal, {ok, StartNumbers, stl(Missing)}, NewState};
+  {stop, normal, {ok, StartNumbers, Missing}, NewState#sequence{finished = true}};
 
 
 handle_call(reset, _From, State) ->
@@ -354,11 +285,58 @@ code_change(_OldVsn, State, _Extra) ->
 %%% Internal functions
 %%%===================================================================
 
+%% register recognizer server with it uuid
 register(Uuid) ->
   ok = reg:name({recognizer, Uuid}).
 
+%% deregister recognizer server
 deregister(Uuid) ->
   reg:unname({recognizer, Uuid}).
+
+
+%% main process function
+process_with_sections(First, Second, State) ->
+  FirstVariants = alphabet:get_matches(First),
+  SecondVariants = alphabet:get_matches(Second),
+
+  S = fun(X) when X > 0 -> X; (_) -> 0 end,
+
+  WorkingSection = #sections{
+    first = (State#sequence.working)#sections.first bor S(First),
+    second = (State#sequence.working)#sections.second bor S(Second)
+  },
+
+  %% check for missed sections (if working sections crossing exists)
+  Exp = ((State#sequence.missing)#sections.first band WorkingSection#sections.first == 0) and
+    ((State#sequence.missing)#sections.second band WorkingSection#sections.second == 0),
+  assert(Exp, unresolved, State#sequence{working = WorkingSection}),
+
+  %% generate all available variant of pairs of digits and missing sections
+  AllVariants = generate_variants(FirstVariants, SecondVariants, WorkingSection, State#sequence.last),
+  assert(AllVariants /= [], unresolved, State#sequence{working = WorkingSection}),
+
+  %% correlate new variants with all possible start positions
+  StartData = associate_variants(AllVariants, #sections{first = S(First), second = S(Second)}, State#sequence.start),
+
+  StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
+  LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
+
+  %% calculate missing sections for each possible start position and globally known
+  AllVariantsMissing = [M || {_, M} <- AllVariants],
+  AllSequenceMissing = [StartItem#start_item.missing || StartItem <- StartData],
+
+  MissingByVariants = get_missed(AllVariantsMissing, State#sequence.missing),
+  Missing = get_missed(AllSequenceMissing, MissingByVariants),
+
+  NewState = State#sequence{
+    start = StartData,
+    last = LastNumbers,
+    missing = Missing,
+    working = WorkingSection
+  },
+  assert(StartData /= [], unresolved, NewState),
+  NewState.
+
 
 %% return true if exists at least one number less than 1 that passed
 filter_neighbors(_, []) -> true;
@@ -366,6 +344,7 @@ filter_neighbors(Number, Exists) ->
   lists:any(fun(El) -> El - 1 == Number end, Exists).
 
 
+%% generates all possible variants of numbers on the traffic-light
 generate_variants([{0, 0}], [{0, 0}], _, Last) ->
   case filter_neighbors(0, Last) of
     true -> [{0, #sections{}}];
@@ -384,6 +363,7 @@ generate_variants(FirstVariants, SecondVariants, WorkingSection, Last) ->
   ].
 
 
+%% calculates missed sections
 get_missed(Variants, Current) ->
   MissedOnStep = lists:foldl(fun(Section, Acc) ->
                    #sections{
@@ -399,6 +379,7 @@ get_missed_section(Current, New) ->
     second = Current#sections.second bor New#sections.second
   }.
 
+%% correlate new variants with all possible start positions
 associate_variants(AllVariants, _, []) ->
   lists:map(fun ({N, M}) ->
               #start_item{
