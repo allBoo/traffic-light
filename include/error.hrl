@@ -15,3 +15,4 @@
 	end).
 
 -define(THROW_ERROR(E), throw(E)).
+-define(THROW_GS_ERROR(E, State), throw({stop, normal, E, State})).

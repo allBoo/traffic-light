@@ -11,6 +11,17 @@
 -include_lib("elli/include/elli.hrl").
 -include_lib("traffic_light.hrl").
 
+-define(TRY(Guard, Expr),
+  begin
+    case (Expr) of
+      Guard -> Guard;
+      {error, Error} -> ?THROW_ERROR({error, Error});
+      __V -> ?THROW_ERROR({error, internal_error})
+    end
+  end).
+
+  %case Expr of Guard -> Guard; {error, Error} -> ?THROW_ERROR({error, Error}); _ -> ?THROW_ERROR({error, internal_error}) end).
+
 %% API
 -export([handle/2, handle_event/3]).
 
@@ -20,30 +31,31 @@
 
 handle(Req, _Args) ->
   %% Delegate to our handler function
-  handle(Req#req.method, elli_request:path(Req), Req).
+  try handle(Req#req.method, elli_request:path(Req), Req)
+  catch
+    throw:{error, Error} ->
+      error_response(Error);
+    Type:Error ->
+      ?WARN("Unknown error in api module ~p:~p", [Type, Error]),
+      error_response(internal_error)
+  end.
+
 
 %% Route METHOD & PATH to the appropriate clause
-handle('POST', [<<"sequence">>, <<"create">>], _Req) ->
-  Response = case recognizer_ctrl:create() of
-               {ok, Uuid} ->
-                 response(#{<<"sequence">> => list_to_binary(Uuid)});
+handle('GET', [<<"sequence">>, <<"create">>], _Req) ->
+  {ok, Uuid} = ?TRY({ok, _X}, recognizer_ctrl:create()),
+  response(#{<<"sequence">> => list_to_binary(Uuid)});
 
-               {error, Error} ->
-                 error_response(Error)
-             end,
 
-  {ok, [], Response};
+handle('GET', [<<"clear">>], _Req) ->
+  ?TRY(ok, recognizer_ctrl:reset()),
+  response(<<"ok">>);
 
-handle('POST', [<<"clear">>], _Req) ->
-  Response = case recognizer_ctrl:reset() of
-               ok ->
-                 response(<<"ok">>);
 
-               {error, Error} ->
-                 error_response(Error)
-             end,
+handle('GET', [<<"test_error">>, Uuid, TestError], _Req) ->
+  ?TRY(neok, recognizer_ctrl:test_error(binary_to_list(Uuid), binary_to_atom(TestError, utf8))),
+  error_response(internal_error);
 
-  {ok, [], Response};
 
 handle(_, _, _Req) ->
   {404, [], <<"Not Found">>}.
@@ -51,16 +63,20 @@ handle(_, _, _Req) ->
 
 
 response(Response) ->
-  jiffy:encode(#{
-    <<"status">>   => <<"ok">>,
-    <<"response">> => Response
-  }).
+  {ok, [],
+    jiffy:encode(#{
+      <<"status">>   => <<"ok">>,
+      <<"response">> => Response
+    })
+  }.
 
 error_response(Error) ->
-  jiffy:encode(#{
-    <<"status">> => <<"error">>,
-    <<"msg">>    => decode_error(Error)
-  }).
+  {ok, [],
+    jiffy:encode(#{
+      <<"status">> => <<"error">>,
+      <<"msg">>    => decode_error(Error)
+    })
+  }.
 
 
 decode_error(unresolved) -> <<"No solutions found">>;
@@ -68,7 +84,8 @@ decode_error(not_found) -> <<"The sequence isn't found">>;
 decode_error(no_data) -> <<"There isn't enough data">>;
 decode_error(already_finished) -> <<"The red observation should be the last">>;
 decode_error(format_error) -> <<"Data format error">>;
-decode_error(_) -> <<"Undefined error">>.
+decode_error(internal_error) -> <<"Internal error">>;
+decode_error(Err) -> ?WARN("Undefined error ~p", [Err]), <<"Undefined error">>.
 
 %%
 %% ELLI EVENT CALLBACKS

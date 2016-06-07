@@ -18,7 +18,8 @@
   add/2,
   done/1,
   registered/1,
-  get_id/1
+  get_id/1,
+  test_error/2
 ]).
 
 -ifdef(TEST).
@@ -41,7 +42,7 @@
   code_change/3]).
 
 -define(SERVER, ?MODULE).
--define(KEEP_ALIVE, 10000).
+-define(KEEP_ALIVE, 100000).
 
 
 %%%===================================================================
@@ -111,6 +112,15 @@ registered(Uuid) ->
 get_id(Pid) when is_pid(Pid) ->
   gen_server:call(Pid, get_id).
 
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Tests for exceptions
+%%
+%% @end
+%%--------------------------------------------------------------------
+test_error(Pid, Error) when is_pid(Pid) ->
+  gen_server:call(Pid, {test_error, Error}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -264,6 +274,10 @@ handle_call(reset, _From, State) ->
 handle_call(get_id, _From, State) ->
   {reply, State#sequence.id, State, ?KEEP_ALIVE};
 
+handle_call({test_error, Error}, _From, State) ->
+  assert(false, Error, State),
+  {reply, neok, State, ?KEEP_ALIVE};
+
 handle_call(_Request, _From, State) ->
   {reply, {error, unknown}, State, ?KEEP_ALIVE}.
 
@@ -413,4 +427,4 @@ stl(Sections) ->
 
 assert(true, _, _) -> ok;
 assert(false, Reason, State) ->
-  ?THROW_ERROR({stop, normal, {error, Reason}, State}).
+  ?THROW_GS_ERROR({error, Reason}, State).

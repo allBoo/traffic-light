@@ -15,7 +15,8 @@
   start_link/0,
   create/0,
   observation/2,
-  reset/0
+  reset/0,
+  test_error/2
 ]).
 
 %% gen_server callbacks
@@ -86,6 +87,17 @@ reset() ->
   gen_server:call(?SERVER, reset).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Resets all saved data and stops existing recognizers
+%%
+%% @end
+%%--------------------------------------------------------------------
+-spec(test_error(Uuid :: string(), Error :: atom()) ->
+  {ok}).
+test_error(Uuid, Error) ->
+  gen_server:call(?SERVER, {test_error, Uuid, Error}).
+
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -140,6 +152,11 @@ handle_call(reset, _From, State) ->
   recognizer_sup:stop_all(),
   storage:reset(),
   {reply, ok, State};
+
+
+handle_call({test_error, Uuid, Error}, _From, State) ->
+  {reply, find_and_call(Uuid, test_error, [Error]), State};
+
 
 handle_call(_Request, _From, State) ->
   {reply, ok, State}.
