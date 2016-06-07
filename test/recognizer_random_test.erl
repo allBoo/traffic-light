@@ -45,11 +45,11 @@ run_tests(MissedFirst, MissedSecond, Tests) ->
 run_test(MissedFirst, MissedSecond, StartValue) ->
   Pid = prepare(),
   run_observation(Pid, MissedFirst, MissedSecond, StartValue, StartValue),
-  cleanup(Pid).
+  cleanup().
 
 
 run_observation(Pid, MissedFirst, MissedSecond, StartValue, 0) ->
-  Response = recognizer:done(Pid),
+  Response = recognizer_ctrl:observation(Pid, {red}),
   ?_assertMatch({ok, [StartValue], [_, _]}, Response),
   {ok, [_], [DetectedMissingFirst, DetectedMissingSecond]} = Response,
   ?_assert(DetectedMissingFirst bor MissedFirst == MissedFirst),
@@ -60,7 +60,7 @@ run_observation(Pid, MissedFirst, MissedSecond, StartValue, CurrentValue) ->
   EncodedFirst = alphabet:encode(CurrentValue div 10) band (bnot MissedFirst),
   EncodedSecond = alphabet:encode(CurrentValue rem 10) band (bnot MissedSecond),
 
-  Response = recognizer:add(Pid, {EncodedFirst, EncodedSecond}),
+  Response = recognizer_ctrl:observation(Pid, {green, EncodedFirst, EncodedSecond}),
   ?_assertMatch({ok, _, [_, _]}, Response),
   {ok, DetectedStartValues, [DetectedMissingFirst, DetectedMissingSecond]} = Response,
   ?_assertNotEqual(DetectedStartValues, []),
@@ -77,18 +77,9 @@ run_observation(Pid, MissedFirst, MissedSecond, StartValue, CurrentValue) ->
 
 
 
-prepare() ->
-  prepare("xxx").
-
-prepare(Uuid)->
-  application:stop(traffic_light),
-  application:ensure_all_started(traffic_light),
-  {ok, Pid} = gen_server:start(recognizer, [Uuid], []),
+prepare()->
+  {ok, Pid} = recognizer_ctrl:create(),
   Pid.
 
-cleanup(Pid) ->
-  case process_info(Pid) of
-    undefined -> ok;
-    _ -> gen_server:stop(Pid, shutdown, 5000)
-  end,
-  application:stop(traffic_light).
+cleanup() ->
+  recognizer_ctrl:reset().
