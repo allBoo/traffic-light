@@ -29,7 +29,13 @@ start_link() ->
 
 %% Child :: {Id,StartFunc,Restart,Shutdown,Type,Modules}
 init([]) ->
-    {ok, { {one_for_one, 5, 10}, [?CHILD_SUP(recognizer_sup), ?CHILD(recognizer_ctrl), ?CHILD(api)]} }.
+    {ok, {{one_for_one, 5, 10}, [
+        ?CHILD(config),
+        ?CHILD(db_cluster),
+        ?CHILD_SUP(recognizer_sup),
+        ?CHILD(recognizer_ctrl),
+        ?CHILD(api)
+    ]}}.
 
 %%====================================================================
 %% Internal functions

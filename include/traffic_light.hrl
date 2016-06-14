@@ -20,6 +20,13 @@
 -define(CHILD_SUP(I), {I, {I, start_link, []}, permanent, infinity, supervisor, [I]}).
 -define(CHILD_SUP_T(I), {I, {I, start_link, []}, transient, infinity, supervisor, [I]}).
 
+%%% ====================================================================
+%%% Env spec
+%%% ====================================================================
+-record(env, {
+  key,
+  value
+}).
 
 %%% ====================================================================
 %%% Data types

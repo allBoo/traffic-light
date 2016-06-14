@@ -23,7 +23,6 @@
 ]).
 
 -ifdef(TEST).
-%-include_lib("eunit/include/eunit.hrl").
 -export([
   filter_neighbors/2,
   get_missed/2,

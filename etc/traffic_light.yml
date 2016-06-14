@@ -1,0 +1,39 @@
+
+#################################### Paths ####################################
+
+path:
+# Path to directory containing configuration (this file and logging.yml):
+  conf: /apps/traffic_light/etc/
+
+# Path to data files
+  data: /tmp/traffic_light
+
+# Path to temporary files:
+  work: /tmp
+
+# Path to log files:
+  logs: log/
+
+############################## Network And HTTP ###############################
+
+http:
+# Disable HTTP completely:
+  enabled: true
+
+# Set both 'bind_host' and 'publish_host':
+  host: 0.0.0.0
+
+# Set a custom port to listen for HTTP traffic:
+  port: 9800
+
+############################## Logging ###############################
+
+log:
+# name of work log file
+  file: "traffic_light.log"
+  error: "error.log"
+  crash: "crash.log"
+# log level
+  level: debug
+# show info about starting processes in error log for extra debugging
+  procs: true

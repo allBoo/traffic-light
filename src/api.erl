@@ -18,14 +18,12 @@ start_link() ->
     ]}
   ],
 
-  %{ok, IPTupled}  = inet_parse:address(config:get("http.host", "127.0.0.1")),
-  {ok, IPTupled}  = inet_parse:address("0.0.0.0"),
+  {ok, IPTupled}  = inet_parse:address(config:get("http.host", "127.0.0.1")),
 
   elli:start_link([
     {callback, elli_middleware},
     {callback_args, Config},
     {ip, IPTupled},
-    %{port, config:get("http.port", 9900)},
-    {port, 9900},
+    {port, config:get("http.port", 9900)},
     {min_acceptors, 5}
   ]).

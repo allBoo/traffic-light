@@ -15,7 +15,10 @@
 %%====================================================================
 
 start(_StartType, _StartArgs) ->
-    traffic_light_sup:start_link().
+    AppSup = traffic_light_sup:start_link(),
+    bootstrap:start(),
+
+    AppSup.
 
 %%--------------------------------------------------------------------
 stop(_State) ->
