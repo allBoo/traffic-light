@@ -16,12 +16,39 @@
 ]).
 
 
-find(_Uuid) ->
-  undefined.
+%%--------------------------------------------------------------------
+%% @doc
+%% Find saved sequence by it uuid
+%%
+%% @end
+%%--------------------------------------------------------------------
+find(Uuid) ->
+  case mnesia:transaction(fun() -> mnesia:select(sequence, [{#sequence{id = Uuid}, [], ['$_']}]) end) of
+    {atomic, [Value]} -> Value;
+    {atomic, []} -> undefined;
+    Any -> Any
+  end.
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Save sequence info
+%%
+%% @end
+%%--------------------------------------------------------------------
 save(Sequence) when is_record(Sequence, sequence) ->
-  ok.
+  response(mnesia:transaction(fun() -> mnesia:write(Sequence) end)).
 
+
+%%--------------------------------------------------------------------
+%% @doc
+%% Clear all saved sequences
+%%
+%% @end
+%%--------------------------------------------------------------------
 reset() ->
-  ok.
+  response(mnesia:clear_table(sequence)).
+
+
+response({atomic, Value}) -> Value;
+response(Value) -> Value.

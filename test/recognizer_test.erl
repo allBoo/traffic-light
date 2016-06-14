@@ -106,7 +106,6 @@ reset_test() ->
 
 get_id_test() ->
   InitialState = #sequence{id = "xxx"},
-  ExpectedState = #sequence{id = "xxx"},
   ?assertMatch({reply, "xxx", InitialState, _}, recognizer:handle_call(get_id, undefined, InitialState)).
 
 

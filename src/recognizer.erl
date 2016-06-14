@@ -317,7 +317,6 @@ process_with_sections(First, Second, State) ->
   %% correlate new variants with all possible start positions
   StartData = associate_variants(AllVariants, #sections{first = S(First), second = S(Second)}, State#sequence.start),
 
-  StartNumbers = [StartItem#start_item.start || StartItem <- StartData],
   LastNumbers = [StartItem#start_item.last || StartItem <- StartData],
 
   %% calculate missing sections for each possible start position and globally known

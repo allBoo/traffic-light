@@ -5,11 +5,11 @@
 %%% @end
 %%%-------------------------------------------------------------------
 
--define(DBG(F, A), lager:debug(F, A)).
--define(DBG(F), lager:debug(F)).
--define(LOG(F, A), lager:info(F, A)).
--define(LOG(F), lager:info(F)).
--define(WARN(F, A), lager:warning(F, A)).
--define(WARN(F), lager:warning(F)).
--define(ERR(F, A), lager:error(F, A)).
--define(ERR(F), lager:error(F)).
+-define(DBG(F, A), log:debug(F, A)).
+-define(DBG(F), log:debug(F)).
+-define(LOG(F, A), log:info(F, A)).
+-define(LOG(F), log:info(F)).
+-define(WARN(F, A), log:warning(F, A)).
+-define(WARN(F), log:warning(F)).
+-define(ERR(F, A), log:error(F, A)).
+-define(ERR(F), log:error(F)).

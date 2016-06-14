@@ -52,8 +52,8 @@ run_observation(Pid, MissedFirst, MissedSecond, StartValue, 0) ->
   Response = recognizer_ctrl:observation(Pid, {red}),
   ?_assertMatch({ok, [StartValue], [_, _]}, Response),
   {ok, [_], [DetectedMissingFirst, DetectedMissingSecond]} = Response,
-  ?_assert(DetectedMissingFirst bor MissedFirst == MissedFirst),
-  ?_assert(DetectedMissingSecond bor MissedSecond == MissedSecond);
+  ?_assertEqual(MissedFirst, DetectedMissingFirst bor MissedFirst),
+  ?_assertEqual(MissedSecond, DetectedMissingSecond bor MissedSecond);
 
 
 run_observation(Pid, MissedFirst, MissedSecond, StartValue, CurrentValue) ->
@@ -68,8 +68,8 @@ run_observation(Pid, MissedFirst, MissedSecond, StartValue, CurrentValue) ->
   case DetectedStartValues of
     [DetectedStartValue] ->
       ?_assertEqual(DetectedStartValue, StartValue),
-      ?_assert(DetectedMissingFirst bor MissedFirst == MissedFirst),
-      ?_assert(DetectedMissingSecond bor MissedSecond == MissedSecond);
+      ?_assertEqual(MissedFirst, DetectedMissingFirst bor MissedFirst),
+      ?_assertEqual(MissedSecond, DetectedMissingSecond bor MissedSecond);
 
     _ ->
       run_observation(Pid, MissedFirst, MissedSecond, StartValue, CurrentValue - 1)

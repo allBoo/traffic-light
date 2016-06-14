@@ -19,9 +19,21 @@
 ]).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Creates env table
+%%
+%% @end
+%%--------------------------------------------------------------------
 init() ->
   mnesia:create_table(env, [{disc_copies, [node()]}, {attributes, record_info(fields, env)}]).
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Get env value
+%%
+%% @end
+%%--------------------------------------------------------------------
 get(Key) ->
   case mnesia:transaction(fun() -> mnesia:select(env, [{#env{key = Key, value = '$1'},[], ['$1']}]) end) of
     {atomic, [Value]} -> Value;
@@ -36,10 +48,22 @@ get(Key, Default) ->
     _ -> Default
   end.
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Set env value
+%%
+%% @end
+%%--------------------------------------------------------------------
 set(Key, Value) ->
   mnesia:transaction(fun() -> mnesia:write(#env{key = Key, value = Value}) end).
 
 
+%%--------------------------------------------------------------------
+%% @doc
+%% Get application name
+%%
+%% @end
+%%--------------------------------------------------------------------
 app() -> app(atom).
 app(atom) ->
   {ok, AppName} = application:get_application(),
